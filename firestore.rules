@@ -2,36 +2,45 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null;
+    // IMPORTANT: use the exact same Firebase Auth email in admin-config.js
+    // and replace this placeholder before publishing these rules in Firebase.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'CHANGE_THIS_TO_YOUR_ADMIN_EMAIL';
     }
 
     function isOwner() {
-      return signedIn() && resource.data.reporterUid == request.auth.uid;
+      return request.auth != null
+        && resource.data.reporterUid == request.auth.uid;
     }
 
     function isNewOwner() {
-      return signedIn() && request.resource.data.reporterUid == request.auth.uid;
+      return request.auth != null
+        && request.resource.data.reporterUid == request.auth.uid;
     }
 
     match /news/{newsId} {
-      // Public readers can see only approved/published news.
-      // Reporters can always read their own submissions.
-      allow read: if resource.data.published == true || isOwner();
+      // Public readers see approved news. Reporter can see own submission. Admin sees all.
+      allow read: if resource.data.published == true || isOwner() || isAdmin();
 
-      // A logged-in reporter can submit a new story.
-      // The client cannot submit it as already published or rejected.
+      // Reporter can create a new pending submission only.
       allow create: if isNewOwner()
         && request.resource.data.published == false
         && request.resource.data.rejected == false
         && request.resource.data.status == 'UnderReview';
 
-      // Reporters may update only their own story and may not transfer ownership.
-      allow update: if isOwner()
-        && request.resource.data.reporterUid == resource.data.reporterUid;
+      // Admin can approve, reject, edit or moderate any story.
+      // A reporter may only edit their own still-pending story and cannot self-publish.
+      allow update: if isAdmin()
+        || (isOwner()
+          && request.resource.data.reporterUid == resource.data.reporterUid
+          && resource.data.status == 'UnderReview'
+          && request.resource.data.published == false
+          && request.resource.data.rejected == false
+          && request.resource.data.status == 'UnderReview');
 
-      // Reporters may delete only their own story.
-      allow delete: if isOwner();
+      // Reporter may delete own story; admin may delete any story.
+      allow delete: if isOwner() || isAdmin();
     }
   }
 }
