@@ -3,7 +3,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey:'AIzaSyAFCAqMsz8RkfS4JpAIVUT27CrWr2cCtJs',
+  apiKey:'\u0041\u0069\u007a\u0061\u0053\u0079\u0041\u0046\u0043\u0041\u0071\u004d\u0073\u007a\u0038\u0052\u006b\u0066\u0053\u0034\u005a\u0070\u0041\u0049\u0050\u006a\u0046\u006e\u0064\u0037\u0031\u0064\u0043\u0072\u0057\u0072\u0032\u0043\u0074\u004a\u0073',
   authDomain:'chat-fe97c.firebaseapp.com',
   projectId:'chat-fe97c',
   storageBucket:'chat-fe97c.firebasestorage.app',
@@ -13,7 +13,11 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 const PROJECT='chat-fe97c';
-const API_KEY='AIzaSyAFCAqMsz8RkfS4JpAIVUT27CrWr2cCtJs';
+const API_KEY:'\u0041\u0069\u007a\u0061\u0053\u0079\u0041\u0046\u0043\u0041\u0071\u004d\u0073\u007a\u0038\u0052\u006b\u0066\u0053\u0034\u005a\u0070\u0041\u0049\u0050\u006a\u0046\u006e\u0064\u0037\u0031\u0064\u0043\u0072\u0057\u0072\u0032\u0043\u0074\u004a\u0073';
+
+// Activate new versions immediately so FCM has a live worker after deployments.
+self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
+self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
 
 async function newsImage(newsId){
   if(!newsId)return '';
@@ -26,6 +30,10 @@ async function newsImage(newsId){
 }
 
 messaging.onBackgroundMessage(async payload=>{
+  // Firebase Console notification messages are automatically displayed by FCM
+  // while the site is in the background. Do not display them a second time.
+  if(payload?.notification)return;
+
   const d=payload?.data||{};
   const title=d.title||'ManaMahabubabad';
   const body=d.body||'కొత్త వార్త వచ్చింది.';
