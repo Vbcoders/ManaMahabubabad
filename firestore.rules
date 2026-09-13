@@ -2,11 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // IMPORTANT: use the exact same Firebase Auth email in admin-config.js
-    // and replace this placeholder before publishing these rules in Firebase.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == 'CHANGE_THIS_TO_YOUR_ADMIN_EMAIL';
+        && request.auth.token.email == 'vikasvikas3339@gmail.com';
     }
 
     function isOwner() {
