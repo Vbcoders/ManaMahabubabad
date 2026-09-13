@@ -3,25 +3,28 @@
   const BRAND_RED = '#d71920';
   const PAPER = '#fffdf8';
   const INK = '#171717';
+  const SCALE = 1600 / 1400;
 
   window.drawShare = function(n){
     const c = document.getElementById('shareCanvas');
     if(!c) return;
 
-    /* High-resolution social/news share image */
-    c.width = 1400;
-    c.height = 1800;
+    /* Same exact design/model, rendered at a larger high-resolution size. */
+    c.width = 1600;
+    c.height = 2058;
 
     const x = c.getContext('2d');
     x.imageSmoothingEnabled = true;
     x.imageSmoothingQuality = 'high';
+    x.save();
+    x.scale(SCALE, SCALE);
 
     x.fillStyle = PAPER;
-    x.fillRect(0,0,c.width,c.height);
+    x.fillRect(0,0,1400,1800);
 
     /* Header */
     x.fillStyle = INK;
-    x.fillRect(0,0,c.width,190);
+    x.fillRect(0,0,1400,190);
     x.fillStyle = '#ffffff';
     x.font = '800 66px Arial, sans-serif';
     x.fillText('Mana',70,118);
@@ -66,6 +69,7 @@
       x.fillStyle = '#777';
       x.font = '20px Arial, sans-serif';
       x.fillText('© ManaMahabubabad • '+new Date().toLocaleDateString('en-IN'),75,1732);
+      x.restore();
     };
 
     if(img){
