@@ -26,17 +26,15 @@
       const {messaging,registration}=await init();
       const token=await messaging.getToken({serviceWorkerRegistration:registration});
       if(!token)throw new Error('Firebase did not return a notification token.');
-      const payload={token,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp(),userAgent:navigator.userAgent.slice(0,500),platform:navigator.platform||''};
-      await saveToken(payload,token);
+      await saveToken(token);
       localStorage.setItem('mm-push-enabled','true');
       const b=document.querySelector('#notifyBtn');if(b)b.textContent='🔔 Notifications Enabled';
       toastPush('News notifications enabled successfully.');
-      messaging.onMessage(payload=>showForeground(payload));
     }catch(e){console.error('[ManaMahabubabad Push]',e);toastPush(e.message||'Notifications setup failed. Check Firebase Messaging setup.')}
   }
-  async function saveToken(payload,token){
+  async function saveToken(token){
     const app=firebase.app();
-    const res=await fetch('https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(app.options.projectId)+'/databases/(default)/documents/notificationTokens/'+tokenId(token)+'?key='+encodeURIComponent(app.options.apiKey),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{token:{stringValue:payload.token},createdAt:{timestampValue:new Date().toISOString()},updatedAt:{timestampValue:new Date().toISOString()},userAgent:{stringValue:payload.userAgent},platform:{stringValue:payload.platform}}})});
+    const res=await fetch('https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(app.options.projectId)+'/databases/(default)/documents/notificationTokens/'+tokenId(token)+'?key='+encodeURIComponent(app.options.apiKey),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{token:{stringValue:token},createdAt:{timestampValue:new Date().toISOString()},updatedAt:{timestampValue:new Date().toISOString()},userAgent:{stringValue:navigator.userAgent.slice(0,500)},platform:{stringValue:navigator.platform||''}}})});
     if(!res.ok)throw new Error('Could not save notification subscription. Publish the updated Firestore rules first.');
   }
   async function showForeground(payload){
@@ -48,17 +46,12 @@
       reg.showNotification(title,options);
     }
   }
-  function toastPush(text){
-    if(typeof toast==='function')toast(text);else console.log(text);
-  }
+  function toastPush(text){if(typeof toast==='function')toast(text);else console.log(text)}
   window.enableNotifications=enableNotifications;
   window.ManaPush={init,enableNotifications};
   document.addEventListener('DOMContentLoaded',()=>{
     const b=document.querySelector('#notifyBtn');
-    if(b){
-      b.addEventListener('click',enableNotifications);
-      if(localStorage.getItem('mm-push-enabled')==='true')b.textContent='🔔 Notifications Enabled';
-    }
+    if(b&&localStorage.getItem('mm-push-enabled')==='true')b.textContent='🔔 Notifications Enabled';
     init().then(({messaging})=>messaging.onMessage(showForeground)).catch(()=>{});
   });
 })();
