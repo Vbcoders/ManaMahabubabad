@@ -1,34 +1,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isAdmin() {
       return request.auth != null
         && request.auth.token.email == 'vikasvikas3339@gmail.com';
     }
-
     function isOwner() {
-      return request.auth != null
-        && resource.data.reporterUid == request.auth.uid;
+      return request.auth != null && resource.data.reporterUid == request.auth.uid;
     }
-
     function isNewOwner() {
-      return request.auth != null
-        && request.resource.data.reporterUid == request.auth.uid;
+      return request.auth != null && request.resource.data.reporterUid == request.auth.uid;
     }
 
     match /news/{newsId} {
-      // Public readers see approved news. Reporter can see own submission. Admin sees all.
       allow read: if resource.data.published == true || isOwner() || isAdmin();
-
-      // Reporter can create a new pending submission only.
       allow create: if isNewOwner()
         && request.resource.data.published == false
         && request.resource.data.rejected == false
         && request.resource.data.status == 'UnderReview';
-
-      // Admin can approve, reject, edit or moderate any story.
-      // A reporter may only edit their own still-pending story and cannot self-publish.
       allow update: if isAdmin()
         || (isOwner()
           && request.resource.data.reporterUid == resource.data.reporterUid
@@ -36,9 +25,24 @@ service cloud.firestore {
           && request.resource.data.published == false
           && request.resource.data.rejected == false
           && request.resource.data.status == 'UnderReview');
-
-      // Reporter may delete own story; admin may delete any story.
       allow delete: if isOwner() || isAdmin();
+    }
+
+    match /notificationTokens/{tokenId} {
+      allow create, update: if request.resource.data.token is string
+        && request.resource.data.token.size() > 10
+        && request.resource.data.token.size() < 5000;
+      allow read, delete: if false;
+    }
+
+    match /pushNotifications/{notificationId} {
+      allow create: if isAdmin()
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.newsId is string;
+      allow read: if isAdmin();
+      allow update, delete: if isAdmin();
     }
   }
 }
