@@ -1,4 +1,4 @@
-const firebaseConfig={apiKey:'AIzaD1OSu1BIx13ZXlxfispoGNjm-E0yZiuIio',authDomain:'chat-fe97c.firebaseapp.com',databaseURL:'https://chat-fe97c-default-rtdb.firebaseio.com',projectId:'chat-fe97c',storageBucket:'chat-fe97c.firebasestorage.app',messagingSenderId:'577320453917',appId:'1:577320453917:web:9a9d34cc088d0053ad03f4',measurementId:'G-H09PJFVCTT'};
+const firebaseConfig={apiKey:'AIzaSyAFCAqMsz8RkfS4JpAIVUT27CrWr2cCtJs',authDomain:'chat-fe97c.firebaseapp.com',databaseURL:'https://chat-fe97c-default-rtdb.firebaseio.com',projectId:'chat-fe97c',storageBucket:'chat-fe97c.firebasestorage.app',messagingSenderId:'577320453917',appId:'1:577320453917:web:fbea459344dc71d1ad03f4',measurementId:'G-86YZ76HRJ3'};
 let auth=null,db=null;
 const $=s=>document.querySelector(s);
 const ADMIN_CONFIGURED=typeof ADMIN_EMAIL==='string'&&!ADMIN_EMAIL.startsWith('CHANGE_THIS');
