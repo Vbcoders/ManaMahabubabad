@@ -4,36 +4,68 @@
   const VAPID_KEY='BDUyQAZQZ73h7pP0NJCJrAC-mRP7kmzmGWLS7jvRFEGxaIA-DLgI6bpbWz_5VoV-ATnYMo6qhDyRNDYZmUvCpQo';
   const SDK='https://www.gstatic.com/firebasejs/10.14.1/';
   let ready=null;
-  const load=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Failed to load '+src));document.head.appendChild(s)});
+  const load=src=>new Promise((ok,no)=>{
+    if(document.querySelector('script[src="'+src+'"]'))return ok();
+    const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(new Error('Failed to load '+src));document.head.appendChild(s)
+  });
+  async function waitForActiveServiceWorker(registration){
+    if(registration.active)return registration;
+    await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('Firebase Messaging service worker did not become active in time. Please refresh the page and try again.')),15000);
+      const finish=()=>{clearTimeout(timer);resolve()};
+      if(registration.active)return finish();
+      if(registration.installing)registration.installing.addEventListener('statechange',()=>{if(registration.active||registration.installing?.state==='activated')finish()});
+      if(registration.waiting)registration.waiting.addEventListener('statechange',()=>{if(registration.active||registration.waiting?.state==='activated')finish()});
+      navigator.serviceWorker.addEventListener('controllerchange',()=>{if(registration.active)finish()},{once:true});
+    });
+    return registration;
+  }
   async function init(){
     if(ready)return ready;
     ready=(async()=>{
-      await load(SDK+'firebase-app-compat.js');
-      await load(SDK+'firebase-messaging-compat.js');
-      try{await load(SDK+'firebase-analytics-compat.js')}catch(e){}
+      if(!window.firebase){
+        await load(SDK+'firebase-app-compat.js');
+      }
+      if(!window.firebase?.messaging){
+        await load(SDK+'firebase-messaging-compat.js');
+      }
+      if(!window.firebase?.analytics){
+        try{await load(SDK+'firebase-analytics-compat.js')}catch(e){}
+      }
       if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
       let analytics=null;try{if(firebase.analytics)analytics=firebase.analytics()}catch(e){}
       const supported=await firebase.messaging.isSupported();
       if(!supported)throw new Error('This browser does not support Firebase web push notifications.');
       const registration=await navigator.serviceWorker.register('./firebase-messaging-sw.js');
-      return{messaging:firebase.messaging(),registration,analytics};
+      await waitForActiveServiceWorker(registration);
+      const activeRegistration=await navigator.serviceWorker.ready;
+      if(!activeRegistration.active)throw new Error('Firebase Messaging service worker is not active. Please refresh and try again.');
+      return{messaging:firebase.messaging(),registration:activeRegistration,analytics};
     })();
-    return ready;
+    try{return await ready}catch(e){ready=null;throw e}
   }
   async function enableNotifications(){
     try{
       if(!('Notification'in window)||!('serviceWorker'in navigator)){toastPush('ఈ బ్రౌజర్ notifications కు support చేయడం లేదు.');return}
       const permission=await Notification.requestPermission();
-      if(permission!=='granted'){toastPush('Notifications permission denied.');return}
+      if(permission!=='granted'){localStorage.removeItem('mm-push-enabled');toastPush('Notifications permission denied.');return}
+      if(!VAPID_KEY)throw new Error('Firebase Web Push key is not configured.');
       const{messaging,registration,analytics}=await init();
+      console.log('[ManaMahabubabad Push] Active service worker:',registration.active?.state);
       const token=await messaging.getToken({serviceWorkerRegistration:registration,vapidKey:VAPID_KEY});
       if(!token)throw new Error('Firebase did not return a notification token.');
-      localStorage.setItem('mm-push-enabled','true');localStorage.setItem('mm-fcm-token',token);
+      localStorage.setItem('mm-push-enabled','true');
+      localStorage.setItem('mm-fcm-token',token);
+      localStorage.setItem('mm-notification-choice','granted');
       if(analytics){try{analytics.setUserProperties({push_opt_in:'true'});analytics.logEvent('push_opt_in',{method:'web_push'})}catch(e){}}
       showTokenBox(token);
       const b=document.querySelector('#notifyBtn');if(b)b.textContent='🔔 Notifications Enabled';
       toastPush('Notifications enabled successfully.');
-    }catch(e){console.error('[ManaMahabubabad Push]',e);toastPush(e.message||'Notifications setup failed.')}
+    }catch(e){
+      console.error('[ManaMahabubabad Push]',e);
+      localStorage.removeItem('mm-push-enabled');
+      toastPush(e.message||'Notifications setup failed.');
+    }
   }
   function showTokenBox(token){
     let box=document.querySelector('#mmPushTokenBox');
@@ -51,5 +83,5 @@
   async function openNewsFromQuery(){const id=new URLSearchParams(location.search).get('news');if(!id)return;try{const url='https://firestore.googleapis.com/v1/projects/'+FIREBASE_CONFIG.projectId+'/databases/(default)/documents/news/'+encodeURIComponent(id)+'?key='+encodeURIComponent(FIREBASE_CONFIG.apiKey);const r=await fetch(url);if(!r.ok)return;const j=await r.json(),f=j.fields||{},title=f.title?.stringValue||'',content=f.content?.stringValue||'';if(title&&typeof openStaticArticle==='function')setTimeout(()=>openStaticArticle(title,content),900)}catch(e){}}
   function toastPush(text){if(typeof toast==='function')toast(text);else console.log(text)}
   window.enableNotifications=enableNotifications;window.ManaPush={init,enableNotifications};
-  document.addEventListener('DOMContentLoaded',()=>{const b=document.querySelector('#notifyBtn');if(b&&localStorage.getItem('mm-push-enabled')==='true')b.textContent='🔔 Notifications Enabled';init().then(({messaging})=>messaging.onMessage(showForeground)).catch(()=>{});openNewsFromQuery()});
+  document.addEventListener('DOMContentLoaded',()=>{const b=document.querySelector('#notifyBtn');if(b&&localStorage.getItem('mm-push-enabled')==='true'&&localStorage.getItem('mm-fcm-token'))b.textContent='🔔 Notifications Enabled';init().then(({messaging})=>messaging.onMessage(showForeground)).catch(e=>console.warn('[ManaMahabubabad Push init]',e));openNewsFromQuery()});
 })();
