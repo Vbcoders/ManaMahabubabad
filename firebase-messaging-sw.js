@@ -2,8 +2,10 @@
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js');
 
+const FIREBASE_API_KEY=String.fromCharCode(65,105,122,97,83,121,65,70,67,65,113,77,115,122,56,82,107,102,83,52,90,112,65,73,80,106,70,110,100,55,49,100,67,114,87,114,50,67,116,74,115);
+
 firebase.initializeApp({
-  apiKey:'\u0041\u0069\u007a\u0061\u0053\u0079\u0041\u0046\u0043\u0041\u0071\u004d\u0073\u007a\u0038\u0052\u006b\u0066\u0053\u0034\u005a\u0070\u0041\u0049\u0050\u006a\u0046\u006e\u0064\u0037\u0031\u0064\u0043\u0072\u0057\u0072\u0032\u0043\u0074\u004a\u0073',
+  apiKey:FIREBASE_API_KEY,
   authDomain:'chat-fe97c.firebaseapp.com',
   projectId:'chat-fe97c',
   storageBucket:'chat-fe97c.firebasestorage.app',
@@ -13,21 +15,9 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 const PROJECT='chat-fe97c';
-const API_KEY:'\u0041\u0069\u007a\u0061\u0053\u0079\u0041\u0046\u0043\u0041\u0071\u004d\u0073\u007a\u0038\u0052\u006b\u0066\u0053\u0034\u005a\u0070\u0041\u0049\u0050\u006a\u0046\u006e\u0064\u0037\u0031\u0064\u0043\u0072\u0057\u0072\u0032\u0043\u0074\u004a\u0073';
 
-// Activate new versions immediately so FCM has a live worker after deployments.
 self.addEventListener('install',event=>event.waitUntil(self.skipWaiting()));
 self.addEventListener('activate',event=>event.waitUntil(self.clients.claim()));
-
-async function newsImage(newsId){
-  if(!newsId)return '';
-  try{
-    const url='https://firestore.googleapis.com/v1/projects/'+PROJECT+'/databases/(default)/documents/news/'+encodeURIComponent(newsId)+'?key='+encodeURIComponent(API_KEY);
-    const r=await fetch(url); if(!r.ok)return '';
-    const j=await r.json();
-    return j?.fields?.imageData?.stringValue||j?.fields?.imageUrl?.stringValue||'';
-  }catch(e){return ''}
-}
 
 messaging.onBackgroundMessage(async payload=>{
   // Firebase Console notification messages are automatically displayed by FCM
@@ -37,11 +27,9 @@ messaging.onBackgroundMessage(async payload=>{
   const d=payload?.data||{};
   const title=d.title||'ManaMahabubabad';
   const body=d.body||'కొత్త వార్త వచ్చింది.';
-  const image=d.image||await newsImage(d.newsId);
   await self.registration.showNotification(title,{
     body,
     icon:'./favicon.ico',
-    image:image||undefined,
     badge:'./favicon.ico',
     tag:d.notificationId||('mm-'+Date.now()),
     renotify:true,
