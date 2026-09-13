@@ -1,30 +1,31 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-import { getAnalytics, isSupported as analyticsSupported } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-storage.js";
-
-const firebaseConfig={
- apiKey:"AIzaSyD1OSuBIx13ZXlxfispoGNjm-E0yZiuIio",
- authDomain:"chat-fe97c.firebaseapp.com",
- databaseURL:"https://chat-fe97c-default-rtdb.firebaseio.com",
- projectId:"chat-fe97c",
- storageBucket:"chat-fe97c.firebasestorage.app",
- messagingSenderId:"577320453917",
- appId:"1:577320453917:web:9a9d34cc088d0053ad03f4",
- measurementId:"G-H09PJFVCTT"
-};
-
-const firebaseApp=initializeApp(firebaseConfig);
-const auth=getAuth(firebaseApp);
-const db=getFirestore(firebaseApp);
-const storage=getStorage(firebaseApp);
-analyticsSupported().then(ok=>{if(ok)getAnalytics(firebaseApp)}).catch(()=>{});
-window.ManaMahabubabad={firebaseApp,auth,db,storage,firebaseConfig};
-
 const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
 const toast=(m)=>{const t=$('#toast');if(!t){console.log(m);return}t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)};
-const safe=(s)=>String(s||'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c]));
+
+const firebaseConfig={
+ apiKey:'AIzaSyD1OSuBIx13ZXlxfispoGNjm-E0yZiuIio',
+ authDomain:'chat-fe97c.firebaseapp.com',
+ databaseURL:'https://chat-fe97c-default-rtdb.firebaseio.com',
+ projectId:'chat-fe97c',
+ storageBucket:'chat-fe97c.firebasestorage.app',
+ messagingSenderId:'577320453917',
+ appId:'1:577320453917:web:9a9d34cc088d0053ad03f4',
+ measurementId:'G-H09PJFVCTT'
+};
+
+let firebaseReady=false,auth=null,db=null,storage=null;
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;document.head.appendChild(s)})}
+async function initFirebase(){
+ try{
+  await loadScript('https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/12.19.0/firebase-storage-compat.js');
+  if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+  auth=firebase.auth();db=firebase.firestore();storage=firebase.storage();firebaseReady=true;
+  window.ManaMahabubabad={firebase,auth,db,storage,firebaseConfig};
+  auth.onAuthStateChanged(user=>{if(user){localStorage.setItem('mm-auth-state','signed-in');addReporterButton(user)}else localStorage.removeItem('mm-auth-state')});
+ }catch(err){console.error('Firebase init failed',err);toast('Firebase connection failed — please refresh')}
+}
 
 $('#today').textContent=new Intl.DateTimeFormat('te-IN',{dateStyle:'full'}).format(new Date());
 $('#year').textContent=new Date().getFullYear();
@@ -35,101 +36,70 @@ function openModal(id){const el=$('#'+id);if(el)el.classList.add('open')}
 function closeModal(e){e.currentTarget.closest('.modal')?.classList.remove('open')}
 $$('[data-close]').forEach(x=>x.onclick=closeModal);
 $$('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open')}));
-$$('[data-open]').forEach(b=>b.onclick=()=>{const card=b.closest('.news-card,.story');const title=card?.querySelector('h2,h3')?.textContent||'మహబూబాబాద్ జిల్లా తాజా వార్త';$('#modalTitle').textContent=title;openModal('articleModal')});
-
+$$('[data-open]').forEach(b=>b.onclick=()=>{const card=b.closest('.news-card,.story');const title=card?.querySelector('h2,h3')?.textContent||'మహబూబాబాద్ జిల్లా తాజా వార్త';if($('#modalTitle'))$('#modalTitle').textContent=title;openModal('articleModal')});
 $('#reporterBtn')?.addEventListener('click',()=>openModal('loginModal'));
 $('#reporterBtn2')?.addEventListener('click',()=>openModal('loginModal'));
 
-/* Firebase reporter authentication */
 $('#loginBtn')?.addEventListener('click',async()=>{
  const email=$('#email')?.value.trim(),pass=$('#password')?.value;
  if(!email||!pass){toast('Email మరియు Password ఇవ్వండి');return}
- const btn=$('#loginBtn');if(btn)btn.disabled=true;
- try{
-   await signInWithEmailAndPassword(auth,email,pass);
-   localStorage.setItem('mm-last-reporter',email);
-   toast('Reporter login successful');
-   $('#loginModal')?.classList.remove('open');
-   showReporterDashboard(auth.currentUser);
- }catch(err){console.error(err);toast(err.code==='auth/invalid-credential'?'Email లేదా Password తప్పుగా ఉంది':(err.message||'Login failed'))}
- finally{if(btn)btn.disabled=false}
-});
-
-onAuthStateChanged(auth,user=>{
- if(user){localStorage.setItem('mm-auth-state','signed-in');addReporterButton(user);}
- else{localStorage.removeItem('mm-auth-state');}
+ if(!firebaseReady){toast('Firebase ఇంకా loading అవుతోంది');return}
+ const btn=$('#loginBtn');btn.disabled=true;
+ try{await auth.signInWithEmailAndPassword(email,pass);localStorage.setItem('mm-last-reporter',email);toast('Reporter login successful');$('#loginModal')?.classList.remove('open');showReporterDashboard(auth.currentUser)}
+ catch(err){console.error(err);toast(err.code==='auth/invalid-credential'?'Email లేదా Password తప్పుగా ఉంది':(err.message||'Login failed'))}
+ finally{btn.disabled=false}
 });
 
 function addReporterButton(user){
  const actions=document.querySelector('.header-actions');
  if(!actions||actions.querySelector('#dashboardBtn'))return;
- const b=document.createElement('button');b.id='dashboardBtn';b.className='reporter-btn';b.textContent='Reporter Dashboard';
- b.onclick=()=>showReporterDashboard(user);actions.appendChild(b);
+ const b=document.createElement('button');b.id='dashboardBtn';b.className='reporter-btn';b.textContent='Reporter Dashboard';b.onclick=()=>showReporterDashboard(user);actions.appendChild(b);
 }
 
 function showReporterDashboard(user){
  let modal=$('#reporterDashboard');
  if(!modal){
   modal=document.createElement('div');modal.id='reporterDashboard';modal.className='modal open';
-  modal.innerHTML=`<div class="modal-box" style="max-width:720px"><button class="modal-close" id="dashClose">×</button><span class="eyebrow">REPORTER CENTER</span><h2>వార్త పంపండి</h2><p id="reporterIdentity" class="meta"></p>
-  <form id="newsForm"><input id="newsTitle" required placeholder="వార్త శీర్షిక"><select id="newsCategory"><option>మహబూబాబాద్</option><option>తెలంగాణ</option><option>రాజకీయాలు</option><option>క్రైమ్</option><option>విద్య</option><option>ఉద్యోగాలు</option><option>క్రీడలు</option><option>ఈవెంట్స్</option></select><input id="newsLocation" required placeholder="వార్త జరిగిన ప్రదేశం"><textarea id="newsContent" required rows="8" placeholder="వార్త వివరాలు"></textarea><label style="display:block;margin:12px 0;font-weight:700">News image <input id="newsImage" type="file" accept="image/*"></label><button class="reporter-btn" type="submit" id="submitNews">Submit for approval</button></form><button class="ghost-btn" id="logoutBtn" style="margin-top:12px">Logout</button><p id="uploadStatus" class="meta"></p></div>`;
+  modal.innerHTML=`<div class="modal-box" style="max-width:720px"><button class="modal-close" id="dashClose">×</button><span class="eyebrow">REPORTER CENTER</span><h2>వార్త పంపండి</h2><p id="reporterIdentity" class="meta"></p><form id="newsForm"><input id="newsTitle" required placeholder="వార్త శీర్షిక"><select id="newsCategory"><option>మహబూబాబాద్</option><option>తెలంగాణ</option><option>రాజకీయాలు</option><option>క్రైమ్</option><option>విద్య</option><option>ఉద్యోగాలు</option><option>క్రీడలు</option><option>ఈవెంట్స్</option></select><input id="newsLocation" required placeholder="వార్త జరిగిన ప్రదేశం"><textarea id="newsContent" required rows="8" placeholder="వార్త వివరాలు"></textarea><label style="display:block;margin:12px 0;font-weight:700">News image <input id="newsImage" type="file" accept="image/*"></label><button class="reporter-btn" type="submit" id="submitNews">Submit for approval</button></form><button class="ghost-btn" id="logoutBtn" style="margin-top:12px">Logout</button><p id="uploadStatus" class="meta"></p></div>`;
   document.body.appendChild(modal);
   $('#dashClose').onclick=()=>modal.remove();
-  $('#logoutBtn').onclick=async()=>{await signOut(auth);modal.remove();toast('Logged out')};
+  $('#logoutBtn').onclick=async()=>{await auth.signOut();modal.remove();toast('Logged out')};
   $('#newsForm').onsubmit=submitNews;
  }
  $('#reporterIdentity').textContent=`Reporter: ${user.displayName||user.email}`;
 }
 
-async function getReporterLocation(){
+function getReporterLocation(){
  return new Promise(resolve=>{
   if(!navigator.geolocation){resolve({permission:'unsupported'});return}
-  navigator.geolocation.getCurrentPosition(
-   p=>resolve({permission:'granted',latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Math.round(p.coords.accuracy)}),
-   e=>resolve({permission:e.code===1?'denied':'error'}),
-   {enableHighAccuracy:false,timeout:8000,maximumAge:300000}
-  );
+  navigator.geolocation.getCurrentPosition(p=>resolve({permission:'granted',latitude:p.coords.latitude,longitude:p.coords.longitude,accuracy:Math.round(p.coords.accuracy)}),e=>resolve({permission:e.code===1?'denied':'error'}),{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
  });
 }
 
 async function submitNews(e){
- e.preventDefault();const user=auth.currentUser;if(!user){toast('ముందుగా Reporter Login చేయండి');return}
+ e.preventDefault();const user=auth?.currentUser;if(!user){toast('ముందుగా Reporter Login చేయండి');return}
  const btn=$('#submitNews'),status=$('#uploadStatus');btn.disabled=true;status.textContent='Location మరియు image processing...';
  try{
-  const loc=await getReporterLocation();
-  let imageUrl='';const file=$('#newsImage').files?.[0];
-  if(file){
-   if(file.size>8*1024*1024)throw new Error('Image must be below 8 MB');
-   const imageRef=ref(storage,`news/${user.uid}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`);
-   await uploadBytes(imageRef,file,{contentType:file.type});imageUrl=await getDownloadURL(imageRef);
-  }
-  await addDoc(collection(db,'news'),{
-   title:$('#newsTitle').value.trim(),content:$('#newsContent').value.trim(),category:$('#newsCategory').value,
-   location:$('#newsLocation').value.trim(),imageUrl,published:false,rejected:false,status:'UnderReview',
-   reporterUid:user.uid,reporterEmail:user.email||'',reporterName:user.displayName||'',
-   reporterLocation:loc,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
-  });
+  const loc=await getReporterLocation();let imageUrl='';const file=$('#newsImage').files?.[0];
+  if(file){if(file.size>8*1024*1024)throw new Error('Image must be below 8 MB');const imageRef=storage.ref(`news/${user.uid}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`);await imageRef.put(file,{contentType:file.type});imageUrl=await imageRef.getDownloadURL()}
+  await db.collection('news').add({title:$('#newsTitle').value.trim(),content:$('#newsContent').value.trim(),category:$('#newsCategory').value,location:$('#newsLocation').value.trim(),imageUrl,published:false,rejected:false,status:'UnderReview',reporterUid:user.uid,reporterEmail:user.email||'',reporterName:user.displayName||'',reporterLocation:loc,createdAt:firebase.firestore.FieldValue.serverTimestamp(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
   e.target.reset();status.textContent=loc.permission==='granted'?'Location captured • News sent for admin approval':'Location permission not granted • News sent without coordinates';toast('వార్త Admin approval కోసం పంపబడింది');
- }catch(err){console.error(err);status.textContent='';toast(err.message||'News upload failed')}
- finally{btn.disabled=false}
+ }catch(err){console.error(err);status.textContent='';toast(err.message||'News upload failed')}finally{btn.disabled=false}
 }
 
-/* Transparent local preferences + first-visit notification prompt */
+/* First-visit notification permission with transparent localStorage preference */
 const NOTIFY_KEY='mm-notification-choice';
 function askNotificationOnFirstVisit(){
  if(!('Notification' in window)||!window.isSecureContext)return;
- const choice=localStorage.getItem(NOTIFY_KEY);
- if(choice)return;
+ if(localStorage.getItem(NOTIFY_KEY))return;
  setTimeout(()=>{
-  const allow=confirm('ManaMahabubabad నుంచి Breaking News మరియు ముఖ్యమైన అప్‌డేట్స్ పొందాలా?\n\nమీ browser notification permission అడుగుతుంది. మీరు వద్దు అంటే మళ్లీ మళ్లీ అడగము.');
-  if(!allow){localStorage.setItem(NOTIFY_KEY,'declined');toast('Notifications later కోసం save చేశాం');return}
+  const allow=confirm('ManaMahabubabad నుంచి Breaking News మరియు ముఖ్యమైన అప్‌డేట్స్ పొందాలా?\n\nమీ browser notification permission అడుగుతుంది. వద్దు అంటే మళ్లీ మళ్లీ అడగము.');
+  if(!allow){localStorage.setItem(NOTIFY_KEY,'declined');toast('Notification preference saved');return}
   Notification.requestPermission().then(p=>{localStorage.setItem(NOTIFY_KEY,p);toast(p==='granted'?'Notifications enabled':'Notifications permission not granted')}).catch(()=>localStorage.setItem(NOTIFY_KEY,'error'));
  },1200);
 }
-askNotificationOnFirstVisit();
 
 $('#searchBtn')?.addEventListener('click',()=>{const q=prompt('ఏ వార్త వెతకాలి?');if(!q)return;let found=0;$$('.news-card,.story').forEach(c=>{const ok=c.innerText.toLowerCase().includes(q.toLowerCase());c.style.display=ok?'':'none';if(ok)found++});toast(found+' వార్తలు కనిపించాయి')});
-
 let currentTitle='మహబూబాబాద్ జిల్లా ప్రజలకు తాజా స్థానిక సమాచారం';
 function drawShare(title){const c=$('#shareCanvas'),x=c.getContext('2d');x.fillStyle='#f8f5ec';x.fillRect(0,0,c.width,c.height);x.fillStyle='#161616';x.fillRect(0,0,c.width,105);x.fillStyle='#fff';x.font='800 30px Arial';x.fillText('MANA MAHABUBABAD',55,67);x.fillStyle='#b91c1c';x.fillRect(55,145,130,8);x.fillStyle='#161616';x.font='800 64px Georgia';wrap(x,title,55,245,970,78,4);x.fillStyle='#aaa';x.fillRect(55,600,970,330);x.fillStyle='#888';x.font='800 28px Arial';x.fillText('NEWS IMAGE',410,775);x.fillStyle='#222';x.font='400 31px Arial';wrap(x,'మహబూబాబాద్ జిల్లాలోని తాజా సమాచారం, ప్రజలకు సంబంధించిన ముఖ్యమైన అంశాలు మరియు స్థానిక పరిణామాలను మన మహబూబాబాద్ మీ ముందుకు తీసుకువస్తోంది.',55,1000,970,45,5);x.fillStyle='#777';x.font='24px Arial';x.fillText('ManaMahabubabad • Today',55,1265);x.fillText(location.href,55,1305)}
 function wrap(x,text,px,py,max,lh,maxLines){const words=text.split(' ');let line='',n=0;for(const w of words){const test=line+w+' ';if(x.measureText(test).width>max&&line){x.fillText(line,px,py);py+=lh;line=w+' ';if(++n>=maxLines)break}else line=test}if(n<maxLines)x.fillText(line,px,py)}
@@ -138,4 +108,4 @@ $('#downloadShare')?.addEventListener('click',()=>{const a=document.createElemen
 $('#copyLink')?.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(location.href);toast('News link copied')}catch{toast('Copy failed')}});
 $('#nativeShare')?.addEventListener('click',async()=>{const c=$('#shareCanvas');c.toBlob(async blob=>{const file=new File([blob],'ManaMahabubabad-News.png',{type:'image/png'});if(navigator.share){try{await navigator.share({title:currentTitle,text:'ManaMahabubabad News',files:[file]})}catch(e){} }else{try{await navigator.clipboard.writeText(location.href);toast('Link copied — share it on WhatsApp')}catch{}}},'image/png')});
 
-window.addEventListener('error',e=>console.error('ManaMahabubabad:',e.error||e.message));
+initFirebase().then(askNotificationOnFirstVisit);
